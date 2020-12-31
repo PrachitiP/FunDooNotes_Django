@@ -59,7 +59,7 @@ class registerform(generics.GenericAPIView):
         except Exception:
            return Response(serializer.errors)
     
-    class EmailVerification(generics.GenericAPIView):
+class EmailVerification(generics.GenericAPIView):
     """
        Created class to verify the user email which used for verification
     """
