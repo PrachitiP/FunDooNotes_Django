@@ -58,3 +58,39 @@ class registerform(generics.GenericAPIView):
 
         except Exception:
            return Response(serializer.errors)
+    
+    class EmailVerification(generics.GenericAPIView):
+    """
+       Created class to verify the user email which used for verification
+    """
+    
+    serializer_class = EmailVerificationSerializer
+    token_param_config = openapi.Parameter('token', in_=openapi.IN_QUERY, description='Description', type=openapi.TYPE_STRING)
+
+    @swagger_auto_schema(manual_parameters=[token_param_config])
+    def get(self, request):
+        """
+                Created method for verifying email and successfully registering the user
+                
+        """
+        token = request.GET.get('token')
+        try:
+            payload = jwt.decode(token, settings.SECRET_KEY)
+            user = User.objects.get(id=payload['user_id'])
+            if not user.is_active:
+
+                user.is_active = True
+                user.save()
+            logging.debug('user activation successful')
+            return Response({'email': 'Successfully activated'}, status=status.HTTP_200_OK)
+        except jwt.ExpiredSignatureError as identifier:
+            logging.exception('Exception due to expired signature')
+            return Response({'error': 'Activation Expired'}, status=status.HTTP_400_BAD_REQUEST)
+        except jwt.exceptions.DecodeError as identifier:
+            logging.exception('Exception due to error in decoding')
+            return Response({'error': 'Invalid token'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+
+
