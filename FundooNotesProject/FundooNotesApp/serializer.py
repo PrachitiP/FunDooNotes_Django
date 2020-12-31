@@ -1,8 +1,9 @@
+from django.contrib.auth.models import User
 from rest_framework import serializers
 from .models import UserDetails
-from django.contrib.auth.models import User
 
-class RegisterationFormSerializer(serializers.ModelSerializer):
+class UserDeatilsSerializer(serializers.ModelSerializer):
+
     class Meta:
-        model = UserDetails
-        fields = ['username','email','password','confirm_password']
+        model = User
+        fields = ['username', 'email', 'first_name', 'last_name', 'password']
