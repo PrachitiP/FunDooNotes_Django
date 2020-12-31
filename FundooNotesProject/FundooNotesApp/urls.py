@@ -9,5 +9,5 @@ from rest_framework import permissions
 
 urlpatterns=[
      path('reg/',registerform.as_view()),
-     path('email-verify/',EmailVerification.as_view()),
+    
 ]
