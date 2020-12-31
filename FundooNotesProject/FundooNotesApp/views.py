@@ -37,6 +37,7 @@ class registerform(generics.GenericAPIView):
             It checks the authenticity of the email by sending a activation link for user to the respective email
              
         """
+        
         try:
             user = request.data
             serializer = self.serializer_class(data=user)
