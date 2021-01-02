@@ -89,6 +89,27 @@ class registerform(generics.GenericAPIView):
         except jwt.exceptions.DecodeError as identifier:
             logging.exception('Exception due to error in decoding')
             return Response({'error': 'Invalid token'}, status=status.HTTP_400_BAD_REQUEST)
+        
+class Login(generics.GenericAPIView):
+    """
+        A Login class which inherited from inbuilt django GenericAPIView class
+        It helps to login the user with the right credentials
+    """
+    serializer_class = LoginSerializer
+    def post(self, request):
+        """
+               Declared post method to insert login details of user
+               Returns:
+                   The serialized user details in JSON format if successful.
+                   Else it returns user does not exist message
+        """
+        try:
+            serializer = self.serializer_class(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+            logging.debug('validated data: {}'.format(serializer.data))
+        except Exception:
+            return Response({'error': 'Something went wrong'}, status=status.HTTP_404_NOT_FOUND)
 
 
 
