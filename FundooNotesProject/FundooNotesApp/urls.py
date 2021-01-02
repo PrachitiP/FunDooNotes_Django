@@ -11,4 +11,6 @@ urlpatterns=[
  
      path('reg/',registerform.as_view()),
      path('email-verify/',EmailVerification.as_view()),
+     path('login/',Login.as_view())
+
 ]
