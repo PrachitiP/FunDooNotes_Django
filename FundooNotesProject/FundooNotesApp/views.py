@@ -116,7 +116,7 @@ class Login(generics.GenericAPIView):
     Created class for sending request to email for password reset 
     """
    
-    serializer_class = ResetPasswordEmailRequestSerializer
+    serializer_class = ForgotPasswordtSerializer
 
     def post(self, request):
         """
