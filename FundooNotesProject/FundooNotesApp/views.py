@@ -111,6 +111,35 @@ class Login(generics.GenericAPIView):
         except Exception:
             return Response({'error': 'Something went wrong'}, status=status.HTTP_404_NOT_FOUND)
 
+ class ForgotPassword(generics.GenericAPIView):
+    """
+    Created class for sending request to email for password reset 
+    """
+   
+    serializer_class = ResetPasswordEmailRequestSerializer
+
+    def post(self, request):
+        """
+        Created method to send base64 encoded token along with user details to email
+            for password reset
+        """
+        email = request.data.get('email', '')
+        try:
+            if User.objects.filter(email=email).exists():
+                user = User.objects.get(email=email)
+                uidb64 = urlsafe_base64_encode(smart_bytes(user.id))
+                token = PasswordResetTokenGenerator().make_token(user)
+                current_site = get_current_site(request=request).domain
+                relativeLink = reverse('password-reset-confirm', kwargs={'uidb64': uidb64, 'token': token})
+                redirect_url = request.data.get('redirect_url', '')
+                absurl = 'http://' + current_site + relativeLink
+                email_body = 'Hello, \n Use link below to reset your password  \n' + absurl + "?redirect_url=" + redirect_url
+                data = {'email_body': email_body, 'to_email': user.email, 'email_subject': 'Reset your passsword'}
+                Util.send_email(data)
+            logging.debug('password link sent successfully')
+            return Response({'success': 'We have sent you a link to reset your password'}, status=status.HTTP_200_OK)
+        except Exception:
+            return Response(default_error_message, status=status.HTTP_400_BAD_REQUEST)
 
 
 
