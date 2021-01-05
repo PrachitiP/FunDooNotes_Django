@@ -59,7 +59,7 @@ class registerform(generics.GenericAPIView):
         except Exception:
            return Response(serializer.errors)
     
-    class EmailVerification(generics.GenericAPIView):
+ class EmailVerification(generics.GenericAPIView):
     """
        Created class to verify the user email which used for verification
     """
@@ -92,55 +92,74 @@ class registerform(generics.GenericAPIView):
         
 class Login(generics.GenericAPIView):
     """
-        A Login class which inherited from inbuilt django GenericAPIView class
-        It helps to login the user with the right credentials
+            A Login class which inherited from inbuilt django GenericAPIView class
+            It helps to login the user with the right credentials
     """
     serializer_class = LoginSerializer
+
     def post(self, request):
         """
-               Declared post method to insert login details of user
-               Returns:
-                   The serialized user details in JSON format if successful.
-                   Else it returns user does not exist message
+             Declared post method to insert login details of user
         """
-        try:
-            serializer = self.serializer_class(data=request.data)
-            serializer.is_valid(raise_exception=True)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-            logging.debug('validated data: {}'.format(serializer.data))
-        except Exception:
-            return Response({'error': 'Something went wrong'}, status=status.HTTP_404_NOT_FOUND)
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user_data = serializer.data
+        user = User.objects.get(email=user_data['email'], password=user_data['password'])
+        payload = jwt_payload_handler(user)
+        token = jwt.encode(payload, settings.SECRET_KEY)
+        user_data['token'] = token
+        request.session['is_logged'] = True
+        return Response(user_data, status=status.HTTP_200_OK)
 
- class ForgotPassword(generics.GenericAPIView):
-    """
+class ResetPassword(generics.GenericAPIView):
+   """
     Created class for sending request to email for password reset 
-    """
-   
-    serializer_class = ForgotPasswordtSerializer
+   """
+    serializer_class = ResetPasswordSerializer
 
     def post(self, request):
         """
-        Created method to send base64 encoded token along with user details to email
-            for password reset
+        Created method to send link to email for password reset
         """
-        email = request.data.get('email', '')
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user_data = serializer.data
+        user = User.objects.get(email=user_data['email'])
+        current_site = get_current_site(request).domain
+        reverseLink = '/new-password/'
+        payload = jwt_payload_handler(user)
+        token = jwt.encode(payload, settings.SECRET_KEY).decode('UTF-8')
+        reset_link = ('http://' + current_site + reverseLink + '?token=' + str(token))
+        email_body = "hii \n" + user.username + "Use this link to reset password: \n" + reset_link
+        data = {'email_body': email_body, 'to_email': user.email, 'email_subject': "Reset password Link"}
+        Util.send_email(data)
+        return Response(user_data, status=status.HTTP_200_OK)
+
+
+class NewPassword(generics.GenericAPIView):
+     """
+    Created class to set new password the respective user
+    """
+    serializer_class = NewPasswordSerializer
+    token_param_config = openapi.Parameter('token', in_=openapi.IN_QUERY, description='Description',type=openapi.TYPE_STRING)
+
+    @swagger_auto_schema(manual_parameters=[token_param_config])
+    def put(self, request):
+       """
+        Created a method to set a new password for existing user
+       """
+        token = request.GET.get('token')
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user_data = serializer.data
+
         try:
-            if User.objects.filter(email=email).exists():
-                user = User.objects.get(email=email)
-                uidb64 = urlsafe_base64_encode(smart_bytes(user.id))
-                token = PasswordResetTokenGenerator().make_token(user)
-                current_site = get_current_site(request=request).domain
-                relativeLink = reverse('password-reset-confirm', kwargs={'uidb64': uidb64, 'token': token})
-                redirect_url = request.data.get('redirect_url', '')
-                absurl = 'http://' + current_site + relativeLink
-                email_body = 'Hello, \n Use link below to reset your password  \n' + absurl + "?redirect_url=" + redirect_url
-                data = {'email_body': email_body, 'to_email': user.email, 'email_subject': 'Reset your passsword'}
-                Util.send_email(data)
-            logging.debug('password link sent successfully')
-            return Response({'success': 'We have sent you a link to reset your password'}, status=status.HTTP_200_OK)
-        except Exception:
-            return Response(default_error_message, status=status.HTTP_400_BAD_REQUEST)
-
-
-
-
+            payload = jwt.decode(token, settings.SECRET_KEY)
+            user = User.objects.get(id=payload['user_id'])
+            user.password = user_data['password']
+            user.save()
+            return Response({'email': 'New password is created'}, status=status.HTTP_200_OK)
+        except jwt.ExpiredSignatureError as identifier:
+            return Response({'error': 'Link is Expired'}, status=status.HTTP_400_BAD_REQUEST)
+        except jwt.exceptions.DecodeError as identifier:
+            return Response({'error': 'Invalid Token'}, status=status.HTTP_400_BAD_REQUEST)
