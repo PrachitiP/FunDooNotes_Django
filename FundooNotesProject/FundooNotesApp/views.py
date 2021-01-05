@@ -112,6 +112,61 @@ class Login(generics.GenericAPIView):
         return Response(user_data, status=status.HTTP_200_OK)
 
 
+class ResetPassword(generics.GenericAPIView):
+    """
+        Created class for sending request to email for password reset
+    """
+    serializer_class = ResetPasswordSerializer
+
+    def post(self, request):
+        """
+              Created method to send link to email for password reset
+        """
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user_data = serializer.data
+        user = User.objects.get(email=user_data['email'])
+        current_site = get_current_site(request).domain
+        reverseLink = '/new-password/'
+        payload = jwt_payload_handler(user)
+        token = jwt.encode(payload, settings.SECRET_KEY).decode('UTF-8')
+
+        reset_link = ('http://' + current_site + reverseLink + '?token=' + str(token))
+        email_body = "hii \n" + user.username + "Use this link to reset password: \n" + reset_link
+        data = {'email_body': email_body, 'to_email': user.email, 'email_subject': "Reset password Link"}
+        Util.send_email(data)
+        return Response(user_data, status=status.HTTP_200_OK)
+
+
+class NewPassword(generics.GenericAPIView):
+    """
+       Created class to set new password the respective user
+    """
+
+    serializer_class = NewPasswordSerializer
+    token_param_config = openapi.Parameter('token', in_=openapi.IN_QUERY, description='Description',type=openapi.TYPE_STRING)
+
+    @swagger_auto_schema(manual_parameters=[token_param_config])
+    def put(self, request):
+        """
+            Created a method to set a new password for existing user
+        """
+        token = request.GET.get('token')
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user_data = serializer.data
+
+        try:
+            payload = jwt.decode(token, settings.SECRET_KEY)
+            user = User.objects.get(id=payload['user_id'])
+            user.password = user_data['password']
+            user.save()
+            return Response({'email': 'New password is created'}, status=status.HTTP_200_OK)
+        except jwt.ExpiredSignatureError as identifier:
+            return Response({'error': 'Link is Expired'}, status=status.HTTP_400_BAD_REQUEST)
+        except jwt.exceptions.DecodeError as identifier:
+            return Response({'error': 'Invalid Token'}, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 
